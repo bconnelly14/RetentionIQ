@@ -2,6 +2,7 @@ const state = {
   role: "Advisor",
   activeView: "dashboard",
   selectedStudentId: "S-1047",
+  selectedDocumentId: "",
   cohortFilter: "All",
   threshold: 68,
   weights: {
@@ -14,7 +15,8 @@ const state = {
     financial: 4,
     workload: 3
   },
-  audit: []
+  audit: [],
+  documents: loadDocuments()
 };
 
 const advisors = [
@@ -176,12 +178,25 @@ const reportSeries = {
   interventions: [43, 50, 61, 67, 72, 78]
 };
 
+function loadDocuments() {
+  try {
+    return JSON.parse(localStorage.getItem("retentionIqDocuments") || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function persistDocuments() {
+  localStorage.setItem("retentionIqDocuments", JSON.stringify(state.documents));
+}
+
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: "[]", roles: ["Advisor", "Student Success Manager", "Administrator"] },
   { id: "queue", label: "At-risk queue", icon: "!", roles: ["Advisor", "Student Success Manager"] },
   { id: "student", label: "Student detail", icon: "o", roles: ["Advisor", "Student Success Manager", "Administrator"] },
   { id: "interventions", label: "Interventions", icon: "+", roles: ["Advisor", "Student Success Manager"] },
   { id: "trends", label: "Trends & reports", icon: "~", roles: ["Student Success Manager", "Administrator"] },
+  { id: "documents", label: "Documents", icon: "#", roles: ["Advisor", "Student Success Manager", "Administrator"] },
   { id: "admin", label: "Admin settings", icon: "*", roles: ["Administrator"] }
 ];
 
@@ -318,6 +333,7 @@ function setActiveView(viewId) {
     student: renderStudentDetail,
     interventions: renderInterventions,
     trends: renderTrends,
+    documents: renderDocuments,
     admin: renderAdmin
   };
   renderers[state.activeView]();
@@ -573,6 +589,10 @@ function renderInterventions() {
       <h2>Intervention History</h2>
       ${interventionTable()}
     </section>
+    <section class="panel">
+      <h2>Saved Advisor Notes</h2>
+      ${documentList("Advisor Note", 5)}
+    </section>
   `;
   document.querySelector("#interventionStudent").addEventListener("change", (event) => {
     state.selectedStudentId = event.target.value;
@@ -606,14 +626,73 @@ function renderTrends() {
       <h2>Reporting Dashboard</h2>
       ${cohortTable()}
     </section>
+    <section class="panel">
+      <h2>Saved Reports</h2>
+      ${documentList("Cohort Report", 5)}
+    </section>
   `;
   document.querySelector("#cohortFilter").addEventListener("change", (event) => {
     state.cohortFilter = event.target.value;
     renderTrends();
   });
-  document.querySelector("#cohortReport").addEventListener("click", () => showNotice(`Generated ${state.cohortFilter} cohort report with current thresholds and intervention outcomes.`));
+  document.querySelector("#cohortReport").addEventListener("click", generateCohortReport);
   drawLineChart("engagementCanvas", [{ label: "Engagement", color: "#008a7a", values: reportSeries.engagement }], reportSeries.labels);
   drawLineChart("interventionCanvas", [{ label: "Success rate", color: "#3a63d8", values: reportSeries.interventions }], reportSeries.labels);
+}
+
+function renderDocuments() {
+  const root = document.querySelector("#documentsView");
+  const reports = state.documents.filter((doc) => doc.type === "Cohort Report").length;
+  const notes = state.documents.filter((doc) => doc.type === "Advisor Note").length;
+  root.innerHTML = `
+    <div class="grid cols-4">
+      <article class="stat"><span class="stat-label">Saved documents</span><strong class="stat-value">${state.documents.length}</strong><span class="stat-delta">Stored in this browser</span></article>
+      <article class="stat"><span class="stat-label">Reports</span><strong class="stat-value">${reports}</strong><span class="stat-delta">Generated from Trends</span></article>
+      <article class="stat"><span class="stat-label">Advisor notes</span><strong class="stat-value">${notes}</strong><span class="stat-delta">Saved from interventions</span></article>
+      <article class="stat"><span class="stat-label">Latest</span><strong class="stat-value">${state.documents[0] ? state.documents[0].createdAt.slice(5, 10) : "--"}</strong><span class="stat-delta">${state.documents[0]?.title || "No documents yet"}</span></article>
+    </div>
+    <section class="panel">
+      <div class="split-actions document-toolbar">
+        <h2>Document Library</h2>
+        <button class="secondary" type="button" onclick="generateCohortReport()">Generate current report</button>
+      </div>
+      ${documentList("All", 100)}
+    </section>
+  `;
+}
+
+function generateCohortReport() {
+  const cohort = state.cohortFilter;
+  const rows = cohort === "All" ? students : students.filter((student) => student.cohort === cohort);
+  const scored = rows.filter((student) => student.riskScore !== null);
+  const atRisk = rows.filter((student) => student.retentionStatus === "At Risk");
+  const interventions = rows.flatMap((student) => student.interventions.map((item) => ({ student, item })));
+  const avgRisk = scored.length ? Math.round(scored.reduce((sum, student) => sum + student.riskScore, 0) / scored.length) : 0;
+  const reportText = [
+    `RetentionIQ Cohort Report`,
+    `Cohort: ${cohort}`,
+    `Generated: ${todayStamp()}`,
+    ``,
+    `Students reviewed: ${rows.length.toLocaleString()}`,
+    `At-risk students: ${atRisk.length.toLocaleString()}`,
+    `Average risk score: ${avgRisk}`,
+    `Open interventions: ${interventions.filter(({ item }) => item.status === "Open").length.toLocaleString()}`,
+    `Closed outcomes: ${interventions.filter(({ item }) => item.status === "Closed").length.toLocaleString()}`,
+    ``,
+    `Top priority students:`,
+    ...atRisk.sort((a, b) => priorityScore(b) - priorityScore(a)).slice(0, 10).map((student, index) => `${index + 1}. ${student.firstName} ${student.lastName} - risk ${student.riskScore}, advisor ${advisorName(student.advisorId)}`)
+  ].join("\n");
+
+  saveDocument({
+    type: "Cohort Report",
+    title: `${cohort} cohort report`,
+    studentId: "",
+    studentName: cohort,
+    content: reportText
+  });
+  showNotice(`${cohort} cohort report saved to Documents.`);
+  if (state.activeView === "trends") renderTrends();
+  if (state.activeView === "documents") renderDocuments();
 }
 
 function renderAdmin() {
@@ -766,6 +845,98 @@ function auditTable() {
   return `<div class="table-wrap"><table><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Detail</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${row.at}</td><td>${row.user}</td><td>${row.action}</td><td>${row.detail}</td></tr>`).join("")}</tbody></table></div>`;
 }
 
+function documentList(type = "All", limit = 100) {
+  const docs = state.documents
+    .filter((doc) => type === "All" || doc.type === type)
+    .slice(0, limit);
+  if (!docs.length) {
+    return `<p class="muted">No saved ${type === "All" ? "documents" : type.toLowerCase() + "s"} yet.</p>`;
+  }
+  const selected = state.documents.find((doc) => doc.id === state.selectedDocumentId) || docs[0];
+  return `
+    <div class="document-layout">
+      <div class="document-list">
+        ${docs.map((doc) => `
+          <article class="document-card ${doc.id === selected.id ? "active" : ""}">
+            <div>
+              <strong>${escapeHtml(doc.title)}</strong>
+              <span class="small">${escapeHtml(doc.type)} - ${escapeHtml(doc.createdAt)}${doc.studentName ? ` - ${escapeHtml(doc.studentName)}` : ""}</span>
+            </div>
+            <div class="split-actions">
+              <button class="secondary" type="button" onclick="openDocument('${doc.id}')">Open</button>
+              <button class="ghost" type="button" onclick="downloadDocument('${doc.id}')">Download</button>
+            </div>
+          </article>
+        `).join("")}
+      </div>
+      <article class="document-preview">
+        <div class="split-actions document-preview-head">
+          <div>
+            <h3>${escapeHtml(selected.title)}</h3>
+            <p class="small">${escapeHtml(selected.type)} - ${escapeHtml(selected.createdAt)}</p>
+          </div>
+          <button class="ghost" type="button" onclick="downloadDocument('${selected.id}')">Download</button>
+        </div>
+        <pre>${escapeHtml(selected.content)}</pre>
+      </article>
+    </div>
+  `;
+}
+
+function saveDocument({ type, title, studentId, studentName, content }) {
+  const doc = {
+    id: `DOC-${Date.now()}-${Math.round(Math.random() * 1000)}`,
+    type,
+    title,
+    studentId,
+    studentName,
+    createdAt: todayStamp(),
+    content
+  };
+  state.documents.unshift(doc);
+  state.selectedDocumentId = doc.id;
+  persistDocuments();
+  return doc;
+}
+
+function openDocument(id) {
+  state.selectedDocumentId = id;
+  setActiveView("documents");
+}
+
+function downloadDocument(id) {
+  const doc = state.documents.find((item) => item.id === id);
+  if (!doc) return;
+  const blob = new Blob([doc.content], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${doc.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "retentioniq-document"}.txt`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function todayStamp() {
+  return new Date().toLocaleString("en-US", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function saveIntervention() {
   const student = students.find((item) => item.id === document.querySelector("#interventionStudent").value);
   const type = document.querySelector("#interventionType").value;
@@ -774,8 +945,26 @@ function saveIntervention() {
   const notes = document.querySelector("#interventionNotes").value.trim() || "Advisor recorded support action and next follow-up.";
   student.interventions.push({ id: `I-${Date.now()}`, type, status: outcome === "Improving" ? "Closed" : "Open", opened: "2026-04-27", followUp, notes, outcome });
   student.lastOutreachDays = 0;
+  saveDocument({
+    type: "Advisor Note",
+    title: `${student.firstName} ${student.lastName} advisor note`,
+    studentId: student.id,
+    studentName: `${student.firstName} ${student.lastName}`,
+    content: [
+      `RetentionIQ Advisor Note`,
+      `Student: ${student.firstName} ${student.lastName} (${student.id})`,
+      `Advisor: ${advisorName(student.advisorId)}`,
+      `Intervention type: ${type}`,
+      `Outcome: ${outcome}`,
+      `Follow-up date: ${followUp}`,
+      `Created: ${todayStamp()}`,
+      ``,
+      `Notes:`,
+      notes
+    ].join("\n")
+  });
   logAudit(state.role, "Recorded intervention", `${student.firstName} ${student.lastName}: ${type}`);
-  showNotice(`Intervention saved for ${student.firstName} ${student.lastName}.`);
+  showNotice(`Intervention and advisor-note document saved for ${student.firstName} ${student.lastName}.`);
   renderInterventions();
 }
 
@@ -1088,5 +1277,8 @@ document.querySelector("#syncButton").addEventListener("click", () => {
 });
 
 window.openStudent = openStudent;
+window.openDocument = openDocument;
+window.downloadDocument = downloadDocument;
+window.generateCohortReport = generateCohortReport;
 
 render();
