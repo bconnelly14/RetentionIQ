@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RetentionIQ</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Primary navigation">
+        <div class="brand">
+          <img class="brand-logo" src="assets/retentioniq-logo.png" alt="RetentionIQ logo">
+          <div>
+            <strong>RetentionIQ</strong>
+            <span>Insight. Intervention. Impact.</span>
+          </div>
+        </div>
+        <label class="role-picker">
+          <span>Role</span>
+          <select id="roleSelect">
+            <option>Advisor</option>
+            <option>Student Success Manager</option>
+            <option>Administrator</option>
+          </select>
+        </label>
+        <nav id="navTabs"></nav>
+        <div class="side-note">
+          Synthetic demo for student success workflows. Not for real student evaluation.
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">University student success office</p>
+            <h1 id="pageTitle">Dashboard</h1>
+          </div>
+          <div class="top-actions">
+            <label class="search">
+              <span class="icon">Go</span>
+              <input id="searchInput" type="search" placeholder="Search students, programs, advisors">
+            </label>
+            <button class="primary" id="syncButton" type="button">Sync data</button>
+          </div>
+        </header>
+
+        <section class="notice" id="notice" hidden></section>
+
+        <section class="view active" id="dashboardView" aria-labelledby="dashboard"></section>
+        <section class="view" id="queueView" aria-labelledby="queue"></section>
+        <section class="view" id="studentView" aria-labelledby="student"></section>
+        <section class="view" id="interventionsView" aria-labelledby="interventions"></section>
+        <section class="view" id="trendsView" aria-labelledby="trends"></section>
+        <section class="view" id="adminView" aria-labelledby="admin"></section>
+      </main>
+    </div>
+
+    <template id="statTemplate">
+      <article class="stat">
+        <span class="stat-label"></span>
+        <strong class="stat-value"></strong>
+        <span class="stat-delta"></span>
+      </article>
+    </template>
+
+    <script src="synthetic-students.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

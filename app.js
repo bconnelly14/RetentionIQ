@@ -1,0 +1,950 @@
+const state = {
+  role: "Advisor",
+  activeView: "dashboard",
+  selectedStudentId: "S-1047",
+  cohortFilter: "All",
+  threshold: 68,
+  weights: {
+    gpa: 24,
+    grade: 18,
+    attendance: 18,
+    assignments: 16,
+    lms: 9,
+    support: 8,
+    financial: 4,
+    workload: 3
+  },
+  audit: []
+};
+
+const advisors = [
+  { id: "A-01", name: "Maya Chen", caseload: 42 },
+  { id: "A-02", name: "Jordan Price", caseload: 39 },
+  { id: "A-03", name: "Riley Patel", caseload: 37 },
+  { id: "A-04", name: "Elena Moore", caseload: 44 }
+];
+
+const seedStudents = [
+  {
+    id: "S-1047",
+    firstName: "Sarah",
+    lastName: "Mitchell",
+    email: "sarah.mitchell@retentioniq.demo",
+    year: 2,
+    major: "Biology",
+    cohort: "Sophomore",
+    program: "Science",
+    advisorId: "A-01",
+    enrollmentStatus: "Enrolled",
+    retentionStatus: "At Risk",
+    status: "At Risk",
+    financialHold: false,
+    workHours: 24,
+    commute: 25,
+    academics: { priorGpa: 2.1, currentGrade: 68, creditsEnrolled: 15, creditsCompleted: 42, missingAssignments: 6, lateSubmissions: 7, assignmentRate: 0.62 },
+    engagement: { attendance: 0.58, lmsLogins: 9, discussionPosts: 3, events: 1, advisingCheckins: 1, trend: [-8, -7, -10, -13, -15, -18] },
+    supportHistory: ["Missed advising appointment", "Tutoring referral pending"],
+    lastOutreachDays: 21,
+    interventions: [
+      { id: "I-9001", type: "Academic coaching", status: "Open", opened: "2026-04-15", followUp: "2026-04-29", notes: "Prioritized biology lab assignments and contacted instructor.", outcome: "Pending" }
+    ]
+  },
+  {
+    id: "S-1088",
+    firstName: "James",
+    lastName: "Chen",
+    email: "james.chen@retentioniq.demo",
+    year: 1,
+    major: "Computer Science",
+    cohort: "First Year",
+    program: "CS",
+    advisorId: "A-02",
+    enrollmentStatus: "Enrolled",
+    retentionStatus: "At Risk",
+    status: "At Risk",
+    financialHold: true,
+    workHours: 32,
+    commute: 54,
+    academics: { priorGpa: 2.4, currentGrade: 73, creditsEnrolled: 12, creditsCompleted: 18, missingAssignments: 4, lateSubmissions: 9, assignmentRate: 0.7 },
+    engagement: { attendance: 0.66, lmsLogins: 5, discussionPosts: 1, events: 0, advisingCheckins: 0, trend: [-4, -5, -8, -11, -11, -14] },
+    supportHistory: ["Financial aid question unresolved"],
+    lastOutreachDays: 34,
+    interventions: []
+  },
+  {
+    id: "S-1129",
+    firstName: "Olivia",
+    lastName: "Harper",
+    email: "olivia.harper@retentioniq.demo",
+    year: 3,
+    major: "Psychology",
+    cohort: "Junior",
+    program: "Arts",
+    advisorId: "A-01",
+    enrollmentStatus: "Enrolled",
+    retentionStatus: "Monitor",
+    status: "Monitor",
+    financialHold: false,
+    workHours: 16,
+    commute: 15,
+    academics: { priorGpa: 2.8, currentGrade: 79, creditsEnrolled: 15, creditsCompleted: 74, missingAssignments: 2, lateSubmissions: 3, assignmentRate: 0.84 },
+    engagement: { attendance: 0.76, lmsLogins: 18, discussionPosts: 8, events: 2, advisingCheckins: 1, trend: [1, -1, -2, -2, -3, -4] },
+    supportHistory: ["Career services referral"],
+    lastOutreachDays: 9,
+    interventions: [
+      { id: "I-9014", type: "Check-in", status: "Closed", opened: "2026-04-02", followUp: "2026-04-11", notes: "Student requested time-management resources.", outcome: "Improved LMS activity" }
+    ]
+  },
+  {
+    id: "S-1183",
+    firstName: "Marcus",
+    lastName: "Rivera",
+    email: "marcus.rivera@retentioniq.demo",
+    year: 4,
+    major: "Business",
+    cohort: "Senior",
+    program: "Business",
+    advisorId: "A-03",
+    enrollmentStatus: "Enrolled",
+    retentionStatus: "At Risk",
+    status: "At Risk",
+    financialHold: false,
+    workHours: 38,
+    commute: 72,
+    academics: { priorGpa: 1.9, currentGrade: 61, creditsEnrolled: 9, creditsCompleted: 102, missingAssignments: 8, lateSubmissions: 11, assignmentRate: 0.55 },
+    engagement: { attendance: 0.52, lmsLogins: 4, discussionPosts: 0, events: 0, advisingCheckins: 0, trend: [-10, -12, -15, -19, -21, -25] },
+    supportHistory: ["Academic probation notice", "No response to two outreach attempts"],
+    lastOutreachDays: 6,
+    interventions: [
+      { id: "I-9030", type: "Escalation", status: "Open", opened: "2026-04-22", followUp: "2026-04-28", notes: "Escalated to success manager due to compounding academic and attendance risk.", outcome: "Pending" }
+    ]
+  },
+  {
+    id: "S-1210",
+    firstName: "Priya",
+    lastName: "Nair",
+    email: "priya.nair@retentioniq.demo",
+    year: 1,
+    major: "Science",
+    cohort: "First Year",
+    program: "Science",
+    advisorId: "A-04",
+    enrollmentStatus: "Enrolled",
+    retentionStatus: "Improving",
+    status: "Improving",
+    financialHold: false,
+    workHours: 10,
+    commute: 18,
+    academics: { priorGpa: 3.1, currentGrade: 83, creditsEnrolled: 16, creditsCompleted: 16, missingAssignments: 1, lateSubmissions: 2, assignmentRate: 0.9 },
+    engagement: { attendance: 0.86, lmsLogins: 26, discussionPosts: 11, events: 3, advisingCheckins: 2, trend: [-3, -1, 1, 4, 6, 8] },
+    supportHistory: ["Tutoring completed"],
+    lastOutreachDays: 4,
+    interventions: [
+      { id: "I-9044", type: "Tutoring", status: "Closed", opened: "2026-03-27", followUp: "2026-04-08", notes: "Math support plan completed.", outcome: "Improving" }
+    ]
+  },
+  {
+    id: "S-1302",
+    firstName: "Noah",
+    lastName: "Bennett",
+    email: "noah.bennett@retentioniq.demo",
+    year: 2,
+    major: "Undeclared",
+    cohort: "Sophomore",
+    program: "Exploratory",
+    advisorId: "A-02",
+    enrollmentStatus: "Enrolled",
+    retentionStatus: "Data Review",
+    status: "Data Review",
+    financialHold: false,
+    workHours: 12,
+    commute: 42,
+    academics: { priorGpa: null, currentGrade: 75, creditsEnrolled: 12, creditsCompleted: 31, missingAssignments: 3, lateSubmissions: 2, assignmentRate: null },
+    engagement: { attendance: 0.72, lmsLogins: 12, discussionPosts: 4, events: 1, advisingCheckins: 1, trend: [0, -2, -3, -2, -5, -6] },
+    supportHistory: ["Transfer transcript pending"],
+    lastOutreachDays: 18,
+    interventions: []
+  }
+];
+
+const students = [...seedStudents, ...(window.syntheticStudents || [])];
+
+const reportSeries = {
+  labels: ["Nov", "Dec", "Jan", "Feb", "Mar", "Apr"],
+  engagement: [71, 73, 76, 74, 70, 67],
+  risk: [22, 24, 27, 30, 33, 35],
+  interventions: [43, 50, 61, 67, 72, 78]
+};
+
+const navItems = [
+  { id: "dashboard", label: "Dashboard", icon: "[]", roles: ["Advisor", "Student Success Manager", "Administrator"] },
+  { id: "queue", label: "At-risk queue", icon: "!", roles: ["Advisor", "Student Success Manager"] },
+  { id: "student", label: "Student detail", icon: "o", roles: ["Advisor", "Student Success Manager", "Administrator"] },
+  { id: "interventions", label: "Interventions", icon: "+", roles: ["Advisor", "Student Success Manager"] },
+  { id: "trends", label: "Trends & reports", icon: "~", roles: ["Student Success Manager", "Administrator"] },
+  { id: "admin", label: "Admin settings", icon: "*", roles: ["Administrator"] }
+];
+
+function requiredDataMissing(student) {
+  return [
+    student.academics.priorGpa,
+    student.academics.assignmentRate,
+    student.engagement.attendance,
+    student.engagement.lmsLogins
+  ].some((value) => value === null || value === undefined || Number.isNaN(value));
+}
+
+function riskFactorScore(student) {
+  if (requiredDataMissing(student)) {
+    return { score: null, level: "Data Review", factors: [{ type: "Data quality", score: 100, description: "Required academic or engagement data is missing; record needs review before final scoring." }] };
+  }
+
+  const w = state.weights;
+  const factors = [
+    {
+      type: "Prior GPA",
+      score: Math.max(0, (2.7 - student.academics.priorGpa) / 2.7) * w.gpa,
+      description: `Prior term GPA is ${student.academics.priorGpa.toFixed(1)}, below the 2.7 monitoring benchmark.`
+    },
+    {
+      type: "Current grade",
+      score: Math.max(0, (78 - student.academics.currentGrade) / 78) * w.grade,
+      description: `Current average is ${student.academics.currentGrade}%, indicating course performance pressure.`
+    },
+    {
+      type: "Attendance",
+      score: Math.max(0, (0.86 - student.engagement.attendance) / 0.86) * w.attendance,
+      description: `Attendance is ${percent(student.engagement.attendance)}, below the expected participation range.`
+    },
+    {
+      type: "Assignments",
+      score: ((student.academics.missingAssignments / 12) * 0.65 + (1 - student.academics.assignmentRate) * 0.35) * w.assignments,
+      description: `${student.academics.missingAssignments} missing assignments and ${percent(student.academics.assignmentRate)} submission rate.`
+    },
+    {
+      type: "LMS activity",
+      score: Math.max(0, (20 - student.engagement.lmsLogins) / 20) * w.lms,
+      description: `${student.engagement.lmsLogins} LMS logins in the last 14 days.`
+    },
+    {
+      type: "Support history",
+      score: Math.min(student.supportHistory.length * 0.35 + Math.max(0, student.lastOutreachDays - 14) / 50, 1) * w.support,
+      description: `${student.supportHistory.length} support-history signals; last outreach ${student.lastOutreachDays} days ago.`
+    },
+    {
+      type: "Financial hold",
+      score: student.financialHold ? w.financial : 0,
+      description: student.financialHold ? "Financial hold may create registration or persistence barriers." : "No financial hold is recorded."
+    },
+    {
+      type: "Work and commute",
+      score: (Math.max(0, student.workHours - 25) / 20 + Math.max(0, student.commute - 45) / 120) * w.workload,
+      description: `${student.workHours} work hours weekly and ${student.commute} minute commute.`
+    }
+  ].map((factor) => ({ ...factor, score: Math.max(0, Math.min(100, factor.score)) }));
+
+  const raw = factors.reduce((sum, factor) => sum + factor.score, 0);
+  const trendPenalty = Math.max(0, Math.abs(student.engagement.trend.at(-1))) * 0.45;
+  const score = Math.min(100, Math.round(raw + trendPenalty));
+  const level = score >= 82 ? "Critical" : score >= state.threshold ? "High" : score >= 50 ? "Medium" : "Low";
+  return {
+    score,
+    level,
+    factors: factors.sort((a, b) => b.score - a.score).slice(0, 4)
+  };
+}
+
+function statusFor(student) {
+  const risk = riskFactorScore(student);
+  if (risk.score === null) return "Data Review";
+  if (risk.score >= state.threshold) return "At Risk";
+  if (student.status === "Improving") return "Improving";
+  return "Monitor";
+}
+
+function priorityScore(student) {
+  const risk = riskFactorScore(student);
+  if (risk.score === null) return 0;
+  const staleOutreach = Math.min(student.lastOutreachDays, 45) * 0.45;
+  const trend = Math.max(0, Math.abs(student.engagement.trend.at(-1))) * 0.8;
+  return Math.round(risk.score + staleOutreach + trend);
+}
+
+function recommendationsFor(student) {
+  const factors = riskFactorScore(student).factors.map((f) => f.type);
+  const recs = [];
+  if (factors.includes("Attendance")) recs.push({ category: "Attendance", title: "Attendance recovery plan", description: "Schedule a participation check-in, identify barriers, and notify instructors for attendance expectations.", priority: "High" });
+  if (factors.includes("Assignments") || factors.includes("Current grade") || factors.includes("Prior GPA")) recs.push({ category: "Academic", title: "Tutoring and assignment sprint", description: "Connect student with tutoring and create a two-week missing assignment recovery plan.", priority: "High" });
+  if (factors.includes("LMS activity")) recs.push({ category: "Engagement", title: "Digital engagement nudge", description: "Send LMS activity guidance and verify access to course materials.", priority: "Medium" });
+  if (factors.includes("Financial hold")) recs.push({ category: "Support", title: "Financial aid resolution", description: "Coordinate with financial aid to resolve holds before registration windows.", priority: "High" });
+  if (student.lastOutreachDays > 14) recs.push({ category: "Outreach", title: "Rapid advisor outreach", description: "Call and email today; set a follow-up date within five business days.", priority: "High" });
+  return recs.length ? recs : [{ category: "Monitor", title: "Maintain monthly check-in", description: "Continue monitoring engagement and keep the next advising touchpoint scheduled.", priority: "Low" }];
+}
+
+function render() {
+  students.forEach((student) => {
+    const risk = riskFactorScore(student);
+    student.riskScore = risk.score;
+    student.riskLevel = risk.level;
+    student.retentionStatus = statusFor(student);
+  });
+  renderNav();
+  setActiveView(state.activeView);
+}
+
+function renderNav() {
+  const nav = document.querySelector("#navTabs");
+  nav.innerHTML = "";
+  navItems.filter((item) => item.roles.includes(state.role)).forEach((item) => {
+    const button = document.createElement("button");
+    button.className = `nav-button ${state.activeView === item.id ? "active" : ""}`;
+    button.type = "button";
+    button.innerHTML = `<span>${item.icon}</span><strong>${item.label}</strong>`;
+    button.addEventListener("click", () => setActiveView(item.id));
+    nav.append(button);
+  });
+}
+
+function setActiveView(viewId) {
+  const allowed = navItems.find((item) => item.id === viewId)?.roles.includes(state.role);
+  state.activeView = allowed ? viewId : "dashboard";
+  document.querySelectorAll(".view").forEach((view) => view.classList.remove("active"));
+  document.querySelector(`#${state.activeView}View`).classList.add("active");
+  document.querySelector("#pageTitle").textContent = navItems.find((item) => item.id === state.activeView).label.replace("&", "and");
+  renderNav();
+  const renderers = {
+    dashboard: renderDashboard,
+    queue: renderQueue,
+    student: renderStudentDetail,
+    interventions: renderInterventions,
+    trends: renderTrends,
+    admin: renderAdmin
+  };
+  renderers[state.activeView]();
+}
+
+function visibleStudents() {
+  const query = document.querySelector("#searchInput").value.trim().toLowerCase();
+  return students.filter((student) => {
+    const haystack = `${student.firstName} ${student.lastName} ${student.email} ${student.major} ${student.program} ${advisorName(student.advisorId)}`.toLowerCase();
+    const cohortOk = state.cohortFilter === "All" || student.cohort === state.cohortFilter;
+    return cohortOk && (!query || haystack.includes(query));
+  });
+}
+
+function renderStats(target, stats) {
+  const template = document.querySelector("#statTemplate");
+  const wrap = document.createElement("div");
+  wrap.className = "grid cols-4";
+  stats.forEach((stat) => {
+    const node = template.content.cloneNode(true);
+    node.querySelector(".stat-label").textContent = stat.label;
+    node.querySelector(".stat-value").textContent = stat.value;
+    const delta = node.querySelector(".stat-delta");
+    delta.textContent = stat.delta;
+    delta.className = `stat-delta ${stat.direction || ""}`;
+    wrap.append(node);
+  });
+  target.append(wrap);
+}
+
+function renderDashboard() {
+  const root = document.querySelector("#dashboardView");
+  root.innerHTML = "";
+  const all = visibleStudents();
+  const atRisk = all.filter((s) => s.retentionStatus === "At Risk").length;
+  const avgRisk = Math.round(all.filter((s) => s.riskScore !== null).reduce((sum, s) => sum + s.riskScore, 0) / all.filter((s) => s.riskScore !== null).length);
+  const riskRate = all.length ? Math.round((atRisk / all.length) * 100) : 0;
+  const retentionHealth = all.length ? `${Math.round(100 - riskRate)}%` : "0%";
+  renderStats(root, [
+    { label: "Active students", value: all.length.toLocaleString(), delta: "CSV-backed synthetic roster", direction: "good" },
+    { label: "Engagement rate", value: "82%", delta: "-3.1% this month", direction: "bad" },
+    { label: "At-risk students", value: atRisk.toLocaleString(), delta: `${riskRate}% of active roster`, direction: "bad" },
+    { label: "Retention health", value: retentionHealth, delta: `${avgRisk} avg risk score`, direction: riskRate > 30 ? "bad" : "good" }
+  ]);
+
+  root.insertAdjacentHTML("beforeend", `
+    <div class="grid cols-2">
+      <section class="panel">
+        <h2>Engagement and Risk Trends</h2>
+        <canvas class="chart" id="trendCanvas" width="900" height="260" aria-label="Engagement and risk trend chart"></canvas>
+      </section>
+      <section class="panel">
+        <h2>Risk Distribution</h2>
+        <canvas class="chart" id="riskCanvas" width="420" height="260" aria-label="Risk distribution chart"></canvas>
+      </section>
+    </div>
+    <div class="grid cols-2">
+      <section class="panel">
+        <h2>Recent At-Risk Alerts</h2>
+        ${studentAlertList(queueStudents().slice(0, 4))}
+      </section>
+      <section class="panel">
+        <h2>Advisor Workload</h2>
+        ${advisorWorkload()}
+      </section>
+    </div>
+  `);
+  drawLineChart("trendCanvas", [
+    { label: "Engagement", color: "#008a7a", values: reportSeries.engagement },
+    { label: "Risk", color: "#c73535", values: reportSeries.risk }
+  ], reportSeries.labels);
+  drawPie("riskCanvas");
+}
+
+function renderQueue() {
+  const root = document.querySelector("#queueView");
+  const queued = queueStudents();
+  const reachedThisWeek = Math.round(queued.length * 0.31);
+  root.innerHTML = "";
+  renderStats(root, [
+    { label: "Total flagged", value: queued.length.toLocaleString(), delta: "35% flagged by active threshold", direction: "bad" },
+    { label: "Reached this week", value: reachedThisWeek.toLocaleString(), delta: "+12% from prior week", direction: "good" },
+    { label: "Avg time to action", value: "18h", delta: "Target under 24h", direction: "good" },
+    { label: "Overdue follow-ups", value: overdueFollowUps().length, delta: "-4 since Monday", direction: "good" }
+  ]);
+  root.insertAdjacentHTML("beforeend", `
+    <div class="grid cols-2">
+      <section class="panel">
+        <h2>Prioritized Outreach Queue</h2>
+        ${studentQueueTable(queued)}
+      </section>
+      <section class="panel">
+        <h2>Top Risk Signals</h2>
+        ${riskSignalList()}
+        <h2>Outreach Rules</h2>
+        <div class="timeline">
+          <div class="timeline-item">Critical risk or no recent outreach: contact within 24 hours.</div>
+          <div class="timeline-item">Worsening attendance trend: schedule advisor check-in.</div>
+          <div class="timeline-item">Financial hold: route to financial aid support.</div>
+        </div>
+      </section>
+    </div>
+  `);
+}
+
+function renderStudentDetail() {
+  const root = document.querySelector("#studentView");
+  const selected = selectedStudent();
+  const risk = riskFactorScore(selected);
+  root.innerHTML = `
+    <section class="profile-head">
+      <div>
+        <div class="profile-name">
+          <h2>${selected.firstName} ${selected.lastName}</h2>
+          ${badge(selected.retentionStatus)}
+          ${badge(risk.level)}
+        </div>
+        <p class="muted">${selected.id} - ${selected.email} - ${selected.major} - ${selected.cohort}</p>
+      </div>
+      <div class="split-actions">
+        <select id="studentSelect">${students.map((s) => `<option value="${s.id}" ${s.id === selected.id ? "selected" : ""}>${s.firstName} ${s.lastName}</option>`).join("")}</select>
+        <button class="secondary" id="escalateButton" type="button">Escalate</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Student List</h2>
+      ${studentListTable(visibleStudents())}
+    </section>
+
+    <div class="grid cols-2">
+      <section class="panel">
+        <h2>Student Profile</h2>
+        <div class="meta-grid">
+          ${kv("Advisor", advisorName(selected.advisorId))}
+          ${kv("Enrollment", selected.enrollmentStatus)}
+          ${kv("Risk score", selected.riskScore === null ? "Data review" : selected.riskScore)}
+          ${kv("Current grade", `${selected.academics.currentGrade}%`)}
+          ${kv("Prior GPA", selected.academics.priorGpa ?? "Missing")}
+          ${kv("Attendance", percent(selected.engagement.attendance))}
+          ${kv("LMS logins", selected.engagement.lmsLogins)}
+          ${kv("Missing assignments", selected.academics.missingAssignments)}
+          ${kv("Support history", selected.supportHistory.join("; "))}
+        </div>
+        <div class="split-actions">
+          <label>Assigned advisor<select id="advisorAssign">${advisors.map((advisor) => `<option value="${advisor.id}" ${advisor.id === selected.advisorId ? "selected" : ""}>${advisor.name}</option>`).join("")}</select></label>
+          <label>Student status<select id="statusUpdate">${["At Risk", "Monitor", "Improving", "Data Review"].map((status) => `<option ${status === selected.status ? "selected" : ""}>${status}</option>`).join("")}</select></label>
+          <button class="secondary" id="saveStudentAdmin" type="button">Update student</button>
+        </div>
+      </section>
+      <section class="panel">
+        <h2>Explainability Panel</h2>
+        ${risk.factors.map((factor) => `
+          <div class="factor">
+            <strong>${factor.type}<span>${Math.round(factor.score)} pts</span></strong>
+            <p class="small">${factor.description}</p>
+          </div>
+        `).join("")}
+      </section>
+    </div>
+
+    <div class="grid cols-2">
+      <section class="panel">
+        <h2>Recommended Interventions</h2>
+        ${recommendationsFor(selected).map((rec, index) => `
+          <article class="recommendation">
+            <strong>${rec.title} ${badge(rec.priority)}</strong>
+            <span class="small">${rec.category}</span>
+            <p>${rec.description}</p>
+            <button class="secondary addRec" data-index="${index}" type="button">Add to plan</button>
+          </article>
+        `).join("")}
+      </section>
+      <section class="panel">
+        <h2>Academic and Engagement Trend</h2>
+        <canvas class="chart" id="studentTrendCanvas" width="700" height="260"></canvas>
+      </section>
+    </div>
+
+    <section class="panel">
+      <h2>Interventions and Outcomes</h2>
+      ${interventionTimeline(selected)}
+    </section>
+  `;
+  document.querySelector("#studentSelect").addEventListener("change", (event) => {
+    state.selectedStudentId = event.target.value;
+    renderStudentDetail();
+  });
+  document.querySelector("#escalateButton").addEventListener("click", () => escalateStudent(selected.id));
+  document.querySelector("#saveStudentAdmin").addEventListener("click", () => updateStudentAssignment(selected.id));
+  document.querySelectorAll(".addRec").forEach((button) => button.addEventListener("click", () => addRecommendation(selected.id, Number(button.dataset.index))));
+  drawLineChart("studentTrendCanvas", [
+    { label: "Engagement change", color: "#3a63d8", values: selected.engagement.trend.map((value) => 70 + value) },
+    { label: "Assignment completion", color: "#008a7a", values: Array.from({ length: 6 }, (_, i) => Math.round(selected.academics.assignmentRate * 100) - 5 + i) }
+  ], reportSeries.labels);
+}
+
+function studentListTable(rows) {
+  const shown = rows.slice(0, 80);
+  return `
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Student</th><th>Major</th><th>Cohort</th><th>Advisor</th><th>Risk</th><th>Status</th><th></th></tr></thead>
+        <tbody>${shown.map((student) => `<tr>
+          <td><strong>${student.firstName} ${student.lastName}</strong><br><span class="small">${student.id}</span></td>
+          <td>${student.major}</td>
+          <td>${student.cohort}</td>
+          <td>${advisorName(student.advisorId)}</td>
+          <td>${student.riskScore === null ? "Review" : student.riskScore} ${badge(student.riskLevel)}</td>
+          <td>${badge(student.retentionStatus)}</td>
+          <td><button class="secondary" onclick="openStudent('${student.id}')" type="button">Open</button></td>
+        </tr>`).join("")}</tbody>
+      </table>
+    </div>
+    ${rows.length > shown.length ? `<p class="small table-note">Showing ${shown.length} of ${rows.length.toLocaleString()} matching students. Search by name, major, program, or advisor to refine.</p>` : ""}
+  `;
+}
+
+function renderInterventions() {
+  const root = document.querySelector("#interventionsView");
+  const selected = selectedStudent();
+  const allInterventions = students.flatMap((student) => student.interventions.map((item) => ({ student, item })));
+  root.innerHTML = `
+    <div class="grid cols-4">
+      <article class="stat"><span class="stat-label">Open interventions</span><strong class="stat-value">${allInterventions.filter(({ item }) => item.status === "Open").length}</strong><span class="stat-delta">Across active caseloads</span></article>
+      <article class="stat"><span class="stat-label">Follow-ups due</span><strong class="stat-value">${overdueFollowUps().length}</strong><span class="stat-delta bad">Needs advisor action</span></article>
+      <article class="stat"><span class="stat-label">Closed outcomes</span><strong class="stat-value">${allInterventions.filter(({ item }) => item.status === "Closed").length}</strong><span class="stat-delta good">Logged and reportable</span></article>
+      <article class="stat"><span class="stat-label">Selected student</span><strong class="stat-value">${selected.riskScore === null ? "Review" : selected.riskScore}</strong><span class="stat-delta">${selected.firstName} ${selected.lastName}</span></article>
+    </div>
+    <div class="grid cols-2">
+      <section class="panel">
+        <h2>Record Intervention</h2>
+        <div class="intervention-form">
+          <label class="field">Student<select id="interventionStudent">${students.map((s) => `<option value="${s.id}" ${s.id === selected.id ? "selected" : ""}>${s.firstName} ${s.lastName}</option>`).join("")}</select></label>
+          <label class="field">Type<select id="interventionType"><option>Academic coaching</option><option>Attendance outreach</option><option>Tutoring</option><option>Financial aid referral</option><option>Escalation</option><option>Custom support</option></select></label>
+          <label class="field">Follow-up date<input id="followUpDate" type="date" value="2026-05-01"></label>
+          <label class="field">Outcome<select id="interventionOutcome"><option>Pending</option><option>Student responded</option><option>Meeting scheduled</option><option>Improving</option><option>No response</option><option>Escalated</option></select></label>
+          <label class="field notes-field">Advisor notes<textarea id="interventionNotes" placeholder="Record contact method, student response, support action, and next step."></textarea></label>
+          <div class="split-actions form-actions">
+            <button class="primary" id="saveIntervention" type="button">Save intervention</button>
+            <button class="ghost" id="markNoResponse" type="button">Mark no response</button>
+          </div>
+        </div>
+      </section>
+      <section class="panel">
+        <h2>Immediate Follow-Ups</h2>
+        <div class="timeline">${overdueFollowUps().map((item) => `<div class="timeline-item"><strong>${item.student}</strong><br><span class="small">${item.detail}</span></div>`).join("")}</div>
+      </section>
+    </div>
+    <section class="panel">
+      <h2>Intervention History</h2>
+      ${interventionTable()}
+    </section>
+  `;
+  document.querySelector("#interventionStudent").addEventListener("change", (event) => {
+    state.selectedStudentId = event.target.value;
+  });
+  document.querySelector("#saveIntervention").addEventListener("click", saveIntervention);
+  document.querySelector("#markNoResponse").addEventListener("click", markNoResponse);
+}
+
+function renderTrends() {
+  const root = document.querySelector("#trendsView");
+  root.innerHTML = `
+    <div class="split-actions">
+      <select id="cohortFilter">${["All", "First Year", "Sophomore", "Junior", "Senior"].map((c) => `<option ${c === state.cohortFilter ? "selected" : ""}>${c}</option>`).join("")}</select>
+      <button class="secondary" id="cohortReport" type="button">Generate cohort report</button>
+    </div>
+    <div class="grid cols-3">
+      <section class="panel">
+        <h2>Engagement Trend</h2>
+        <canvas class="chart" id="engagementCanvas" width="500" height="260"></canvas>
+      </section>
+      <section class="panel">
+        <h2>Intervention Effectiveness</h2>
+        <canvas class="chart" id="interventionCanvas" width="500" height="260"></canvas>
+      </section>
+      <section class="panel">
+        <h2>Cohort Watchlist</h2>
+        ${cohortWatchlist()}
+      </section>
+    </div>
+    <section class="panel">
+      <h2>Reporting Dashboard</h2>
+      ${cohortTable()}
+    </section>
+  `;
+  document.querySelector("#cohortFilter").addEventListener("change", (event) => {
+    state.cohortFilter = event.target.value;
+    renderTrends();
+  });
+  document.querySelector("#cohortReport").addEventListener("click", () => showNotice(`Generated ${state.cohortFilter} cohort report with current thresholds and intervention outcomes.`));
+  drawLineChart("engagementCanvas", [{ label: "Engagement", color: "#008a7a", values: reportSeries.engagement }], reportSeries.labels);
+  drawLineChart("interventionCanvas", [{ label: "Success rate", color: "#3a63d8", values: reportSeries.interventions }], reportSeries.labels);
+}
+
+function renderAdmin() {
+  const root = document.querySelector("#adminView");
+  root.innerHTML = `
+    <section class="panel">
+      <h2>Risk Thresholds and Rules</h2>
+      <div class="settings-row">
+        <div><strong>At-risk threshold</strong><p class="small">Students are flagged when score is greater than or equal to this value.</p></div>
+        <input id="thresholdInput" type="number" min="1" max="100" value="${state.threshold}">
+        <button class="primary" id="saveThreshold" type="button">Update</button>
+      </div>
+      ${Object.entries(state.weights).map(([key, value]) => `
+        <div class="settings-row">
+          <div><strong>${titleCase(key)} factor weight</strong><p class="small">Used in future risk calculations and explainability scoring.</p></div>
+          <input class="weightInput" data-key="${key}" type="number" min="0" max="40" value="${value}">
+          <span class="small">points</span>
+        </div>
+      `).join("")}
+      <button class="secondary" id="saveWeights" type="button">Save factor weights</button>
+    </section>
+    <section class="panel">
+      <h2>Reporting Views</h2>
+      <div class="split-actions">
+        <button class="ghost" type="button">Advisor caseload view</button>
+        <button class="ghost" type="button">Cohort retention view</button>
+        <button class="ghost" type="button">Intervention outcomes view</button>
+      </div>
+    </section>
+    <section class="panel">
+      <h2>Risk Status Audit</h2>
+      ${auditTable()}
+    </section>
+  `;
+  document.querySelector("#saveThreshold").addEventListener("click", () => {
+    state.threshold = clamp(Number(document.querySelector("#thresholdInput").value), 1, 100);
+    logAudit("Administrator", "Updated risk threshold", `New threshold: ${state.threshold}`);
+    showNotice(`Risk threshold updated to ${state.threshold}. Future calculations now use the new value.`);
+    render();
+  });
+  document.querySelector("#saveWeights").addEventListener("click", () => {
+    document.querySelectorAll(".weightInput").forEach((input) => {
+      state.weights[input.dataset.key] = clamp(Number(input.value), 0, 40);
+    });
+    logAudit("Administrator", "Updated factor weights", "Risk scoring weights changed");
+    showNotice("Factor weights updated and risk scores recalculated.");
+    render();
+  });
+}
+
+function queueStudents() {
+  return visibleStudents()
+    .filter((student) => student.retentionStatus === "At Risk")
+    .sort((a, b) => priorityScore(b) - priorityScore(a));
+}
+
+function studentQueueTable(rows) {
+  const shown = rows.slice(0, 80);
+  return `
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Student</th><th>Priority</th><th>Risk</th><th>Reason</th><th>Advisor</th><th>Due</th><th></th></tr></thead>
+        <tbody>${shown.map((student) => {
+          const top = riskFactorScore(student).factors[0];
+          return `<tr>
+            <td><strong>${student.firstName} ${student.lastName}</strong><br><span class="small">${student.major} - ${student.cohort}</span></td>
+            <td>${priorityScore(student)}</td>
+            <td>${badge(student.riskLevel)}<br><strong>${student.riskScore}</strong></td>
+            <td>${top.description}</td>
+            <td>${advisorName(student.advisorId)}</td>
+            <td>${student.lastOutreachDays > 14 ? "Today" : "This week"}</td>
+            <td><button class="secondary" onclick="openStudent('${student.id}')" type="button">View</button></td>
+          </tr>`;
+        }).join("")}</tbody>
+      </table>
+    </div>
+    ${rows.length > shown.length ? `<p class="small table-note">Showing top ${shown.length} of ${rows.length.toLocaleString()} prioritized students. Use search to narrow the roster.</p>` : ""}
+  `;
+}
+
+function studentAlertList(rows) {
+  return `<div class="timeline">${rows.map((student) => `
+    <div class="timeline-item">
+      <strong>${student.firstName} ${student.lastName}</strong> ${badge(student.riskLevel)}
+      <p class="small">${riskFactorScore(student).factors[0].description}</p>
+      <button class="secondary" onclick="openStudent('${student.id}')" type="button">Review</button>
+    </div>
+  `).join("")}</div>`;
+}
+
+function riskSignalList() {
+  const signals = {};
+  queueStudents().forEach((student) => riskFactorScore(student).factors.forEach((factor) => {
+    signals[factor.type] = (signals[factor.type] || 0) + 1;
+  }));
+  return `<div class="timeline">${Object.entries(signals).sort((a, b) => b[1] - a[1]).map(([name, count]) => `<div class="timeline-item"><strong>${name}</strong><span class="small"> - ${count} flagged students</span></div>`).join("")}</div>`;
+}
+
+function advisorWorkload() {
+  return `<div class="timeline">${advisors.map((advisor) => {
+    const caseload = students.filter((student) => student.advisorId === advisor.id).length;
+    const risk = students.filter((student) => student.advisorId === advisor.id && student.retentionStatus === "At Risk").length;
+    return `<div class="timeline-item"><strong>${advisor.name}</strong><br><span class="small">${caseload} demo students - ${advisor.caseload} total caseload - ${risk} at risk</span></div>`;
+  }).join("")}</div>`;
+}
+
+function interventionTimeline(student) {
+  if (!student.interventions.length) return `<p class="muted">No interventions recorded yet.</p>`;
+  return `<div class="timeline">${student.interventions.slice().sort((a, b) => b.opened.localeCompare(a.opened)).map((item) => `
+    <div class="timeline-item">
+      <strong>${item.type}</strong> ${badge(item.status)}
+      <p>${item.notes}</p>
+      <span class="small">Opened ${item.opened} - Follow-up ${item.followUp} - Outcome: ${item.outcome}</span>
+    </div>
+  `).join("")}</div>`;
+}
+
+function interventionTable() {
+  const rows = students.flatMap((student) => student.interventions.map((item) => ({ student, item }))).sort((a, b) => b.item.opened.localeCompare(a.item.opened));
+  return `<div class="table-wrap"><table><thead><tr><th>Date</th><th>Student</th><th>Type</th><th>Status</th><th>Follow-up</th><th>Outcome</th><th>Notes</th></tr></thead><tbody>${rows.map(({ student, item }) => `
+    <tr><td>${item.opened}</td><td>${student.firstName} ${student.lastName}</td><td>${item.type}</td><td>${badge(item.status)}</td><td>${item.followUp}</td><td>${item.outcome}</td><td>${item.notes}</td></tr>
+  `).join("")}</tbody></table></div>`;
+}
+
+function overdueFollowUps() {
+  return students.flatMap((student) => student.interventions
+    .filter((item) => item.status === "Open")
+    .map((item) => ({ student: `${student.firstName} ${student.lastName}`, detail: `${item.type} follow-up due ${item.followUp}` })));
+}
+
+function cohortWatchlist() {
+  return `<div class="timeline">
+    <div class="timeline-item"><strong>First Year</strong><br><span class="small">LMS activity down 6% over two weeks.</span></div>
+    <div class="timeline-item"><strong>Sophomore</strong><br><span class="small">Attendance variance widening in Science programs.</span></div>
+    <div class="timeline-item"><strong>Senior</strong><br><span class="small">High workload signals concentrated in Business.</span></div>
+  </div>`;
+}
+
+function cohortTable() {
+  const cohorts = ["First Year", "Sophomore", "Junior", "Senior"];
+  return `<div class="table-wrap"><table><thead><tr><th>Cohort</th><th>Students</th><th>Avg risk</th><th>At risk</th><th>Intervention success</th><th>Trend</th></tr></thead><tbody>${cohorts.map((cohort) => {
+    const rows = students.filter((student) => student.cohort === cohort);
+    const avg = rows.length ? Math.round(rows.reduce((sum, s) => sum + (s.riskScore || 0), 0) / rows.length) : 0;
+    return `<tr><td>${cohort}</td><td>${rows.length || "1,000+"}</td><td>${avg || "47"}</td><td>${rows.filter((s) => s.retentionStatus === "At Risk").length}</td><td>${cohort === "Junior" ? "81%" : cohort === "Senior" ? "67%" : "74%"}</td><td>${cohort === "Sophomore" ? badge("Worsening") : badge("Stable")}</td></tr>`;
+  }).join("")}</tbody></table></div>`;
+}
+
+function auditTable() {
+  const rows = state.audit.length ? state.audit : [{ at: "2026-04-27 09:00", user: "System", action: "Initial sync", detail: "Imported SIS, LMS, attendance, and support-history data" }];
+  return `<div class="table-wrap"><table><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Detail</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${row.at}</td><td>${row.user}</td><td>${row.action}</td><td>${row.detail}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+function saveIntervention() {
+  const student = students.find((item) => item.id === document.querySelector("#interventionStudent").value);
+  const type = document.querySelector("#interventionType").value;
+  const followUp = document.querySelector("#followUpDate").value;
+  const outcome = document.querySelector("#interventionOutcome").value;
+  const notes = document.querySelector("#interventionNotes").value.trim() || "Advisor recorded support action and next follow-up.";
+  student.interventions.push({ id: `I-${Date.now()}`, type, status: outcome === "Improving" ? "Closed" : "Open", opened: "2026-04-27", followUp, notes, outcome });
+  student.lastOutreachDays = 0;
+  logAudit(state.role, "Recorded intervention", `${student.firstName} ${student.lastName}: ${type}`);
+  showNotice(`Intervention saved for ${student.firstName} ${student.lastName}.`);
+  renderInterventions();
+}
+
+function markNoResponse() {
+  const student = selectedStudent();
+  student.interventions.push({ id: `I-${Date.now()}`, type: "No response outreach", status: "Open", opened: "2026-04-27", followUp: "2026-05-01", notes: "Student did not respond; retry and escalation scheduled.", outcome: "No response" });
+  logAudit(state.role, "Marked no response", `${student.firstName} ${student.lastName}`);
+  showNotice(`${student.firstName} ${student.lastName} marked as no response with follow-up scheduled.`);
+  renderInterventions();
+}
+
+function addRecommendation(studentId, index) {
+  const student = students.find((item) => item.id === studentId);
+  const rec = recommendationsFor(student)[index];
+  student.interventions.push({ id: `I-${Date.now()}`, type: rec.title, status: "Open", opened: "2026-04-27", followUp: "2026-05-02", notes: rec.description, outcome: "Pending" });
+  logAudit(state.role, "Added recommended intervention", `${student.firstName} ${student.lastName}: ${rec.title}`);
+  showNotice(`${rec.title} added to ${student.firstName} ${student.lastName}'s plan.`);
+  renderStudentDetail();
+}
+
+function escalateStudent(studentId) {
+  const student = students.find((item) => item.id === studentId);
+  student.status = "At Risk";
+  student.interventions.push({ id: `I-${Date.now()}`, type: "Escalation", status: "Open", opened: "2026-04-27", followUp: "2026-04-29", notes: "Escalated for manager review due to high or compounding risk.", outcome: "Pending" });
+  logAudit(state.role, "Escalated high-risk student", `${student.firstName} ${student.lastName}`);
+  showNotice(`${student.firstName} ${student.lastName} escalated for manager review.`);
+  renderStudentDetail();
+}
+
+function updateStudentAssignment(studentId) {
+  const student = students.find((item) => item.id === studentId);
+  const oldAdvisor = advisorName(student.advisorId);
+  student.advisorId = document.querySelector("#advisorAssign").value;
+  student.status = document.querySelector("#statusUpdate").value;
+  logAudit(state.role, "Updated student profile", `${student.firstName} ${student.lastName}: ${oldAdvisor} to ${advisorName(student.advisorId)}, status ${student.status}`);
+  showNotice(`${student.firstName} ${student.lastName} updated and audit history recorded.`);
+  renderStudentDetail();
+}
+
+function openStudent(studentId) {
+  state.selectedStudentId = studentId;
+  setActiveView("student");
+}
+
+function selectedStudent() {
+  return students.find((student) => student.id === state.selectedStudentId) || students[0];
+}
+
+function advisorName(id) {
+  return advisors.find((advisor) => advisor.id === id)?.name || "Unassigned";
+}
+
+function kv(label, value) {
+  return `<div class="kv"><span>${label}</span><strong>${value}</strong></div>`;
+}
+
+function badge(label) {
+  const cls = String(label).toLowerCase().replace(/\s+/g, "-");
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function percent(value) {
+  if (value === null || value === undefined) return "Missing";
+  return `${Math.round(value * 100)}%`;
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, Number.isFinite(value) ? value : min));
+}
+
+function titleCase(value) {
+  return value.replace(/([A-Z])/g, " $1").replace(/^./, (char) => char.toUpperCase());
+}
+
+function logAudit(user, action, detail) {
+  state.audit.unshift({ at: "2026-04-27 10:35", user, action, detail });
+}
+
+function showNotice(message) {
+  const notice = document.querySelector("#notice");
+  notice.textContent = message;
+  notice.hidden = false;
+  window.setTimeout(() => {
+    notice.hidden = true;
+  }, 4500);
+}
+
+function drawLineChart(canvasId, series, labels) {
+  const canvas = document.querySelector(`#${canvasId}`);
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const width = canvas.width;
+  const height = canvas.height;
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+  ctx.strokeStyle = "#d9e0ec";
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 5; i += 1) {
+    const y = 24 + i * ((height - 56) / 4);
+    ctx.beginPath();
+    ctx.moveTo(42, y);
+    ctx.lineTo(width - 22, y);
+    ctx.stroke();
+  }
+  series.forEach((line) => {
+    const max = 100;
+    const min = 0;
+    ctx.beginPath();
+    line.values.forEach((value, index) => {
+      const x = 42 + index * ((width - 74) / (line.values.length - 1));
+      const y = 24 + (1 - (value - min) / (max - min)) * (height - 62);
+      if (index === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = line.color;
+    ctx.lineWidth = 4;
+    ctx.stroke();
+  });
+  ctx.fillStyle = "#657085";
+  ctx.font = "12px Arial";
+  labels.forEach((label, index) => {
+    const x = 42 + index * ((width - 74) / (labels.length - 1));
+    ctx.fillText(label, x - 12, height - 14);
+  });
+}
+
+function drawPie(canvasId) {
+  const canvas = document.querySelector(`#${canvasId}`);
+  const ctx = canvas.getContext("2d");
+  const counts = [
+    { label: "Critical", color: "#c73535", value: students.filter((s) => s.riskLevel === "Critical").length },
+    { label: "High", color: "#b46a00", value: students.filter((s) => s.riskLevel === "High").length },
+    { label: "Medium", color: "#3a63d8", value: students.filter((s) => s.riskLevel === "Medium").length },
+    { label: "Low", color: "#008a7a", value: students.filter((s) => ["Low", "Data Review"].includes(s.riskLevel)).length }
+  ];
+  let start = -Math.PI / 2;
+  const total = counts.reduce((sum, item) => sum + item.value, 0) || 1;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  counts.forEach((item) => {
+    const angle = (item.value / total) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(130, 128);
+    ctx.arc(130, 128, 78, start, start + angle);
+    ctx.closePath();
+    ctx.fillStyle = item.color;
+    ctx.fill();
+    start += angle;
+  });
+  ctx.font = "13px Arial";
+  counts.forEach((item, index) => {
+    ctx.fillStyle = item.color;
+    ctx.fillRect(250, 76 + index * 28, 12, 12);
+    ctx.fillStyle = "#172033";
+    ctx.fillText(`${item.label}: ${item.value}`, 270, 87 + index * 28);
+  });
+}
+
+document.querySelector("#roleSelect").addEventListener("change", (event) => {
+  state.role = event.target.value;
+  render();
+});
+
+document.querySelector("#searchInput").addEventListener("input", () => setActiveView(state.activeView));
+
+document.querySelector("#syncButton").addEventListener("click", () => {
+  logAudit(state.role, "Imported data", "SIS, LMS, attendance, and support-history sync completed");
+  showNotice("Data sync completed. Dashboards, profiles, and risk explanations were refreshed.");
+  render();
+});
+
+window.openStudent = openStudent;
+
+render();
