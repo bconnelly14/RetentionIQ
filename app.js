@@ -368,10 +368,12 @@ function renderDashboard() {
       <section class="panel">
         <h2>Engagement and Risk Trends</h2>
         <canvas class="chart" id="trendCanvas" width="900" height="260" aria-label="Engagement and risk trend chart"></canvas>
+        <div class="chart-detail" id="trendCanvasDetail">Hover over a point or click a month to inspect engagement and risk.</div>
       </section>
       <section class="panel">
         <h2>Risk Distribution</h2>
         <canvas class="chart" id="riskCanvas" width="420" height="260" aria-label="Risk distribution chart"></canvas>
+        <div class="chart-detail" id="riskCanvasDetail">Hover over a slice or click a risk level to inspect the roster segment.</div>
       </section>
     </div>
     <div class="grid cols-2">
@@ -861,12 +863,46 @@ function showNotice(message) {
   }, 4500);
 }
 
-function drawLineChart(canvasId, series, labels) {
+function chartTooltip() {
+  let tooltip = document.querySelector("#chartTooltip");
+  if (!tooltip) {
+    tooltip = document.createElement("div");
+    tooltip.id = "chartTooltip";
+    tooltip.className = "chart-tooltip";
+    tooltip.hidden = true;
+    document.body.append(tooltip);
+  }
+  return tooltip;
+}
+
+function canvasPoint(event, canvas) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: (event.clientX - rect.left) * (canvas.width / rect.width),
+    y: (event.clientY - rect.top) * (canvas.height / rect.height)
+  };
+}
+
+function moveTooltip(event, html) {
+  const tooltip = chartTooltip();
+  tooltip.innerHTML = html;
+  tooltip.style.left = `${event.clientX}px`;
+  tooltip.style.top = `${event.clientY}px`;
+  tooltip.hidden = false;
+}
+
+function hideTooltip() {
+  const tooltip = chartTooltip();
+  tooltip.hidden = true;
+}
+
+function drawLineChart(canvasId, series, labels, activeIndex = null) {
   const canvas = document.querySelector(`#${canvasId}`);
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const width = canvas.width;
   const height = canvas.height;
+  const points = [];
   ctx.clearRect(0, 0, width, height);
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, width, height);
@@ -879,29 +915,83 @@ function drawLineChart(canvasId, series, labels) {
     ctx.lineTo(width - 22, y);
     ctx.stroke();
   }
-  series.forEach((line) => {
+  series.forEach((line, seriesIndex) => {
     const max = 100;
     const min = 0;
+    const linePoints = [];
     ctx.beginPath();
     line.values.forEach((value, index) => {
       const x = 42 + index * ((width - 74) / (line.values.length - 1));
       const y = 24 + (1 - (value - min) / (max - min)) * (height - 62);
+      linePoints.push({ x, y, value, index, label: labels[index], seriesIndex, seriesLabel: line.label, color: line.color });
       if (index === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     });
     ctx.strokeStyle = line.color;
     ctx.lineWidth = 4;
     ctx.stroke();
+    points.push(...linePoints);
+    linePoints.forEach((point) => {
+      const selected = activeIndex === point.index;
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, selected ? 7 : 4, 0, Math.PI * 2);
+      ctx.fillStyle = selected ? "#ffffff" : line.color;
+      ctx.fill();
+      ctx.lineWidth = selected ? 4 : 2;
+      ctx.strokeStyle = line.color;
+      ctx.stroke();
+    });
   });
+  if (activeIndex !== null) {
+    const x = 42 + activeIndex * ((width - 74) / (labels.length - 1));
+    ctx.beginPath();
+    ctx.moveTo(x, 20);
+    ctx.lineTo(x, height - 34);
+    ctx.strokeStyle = "#93a4bd";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
   ctx.fillStyle = "#657085";
   ctx.font = "12px Arial";
   labels.forEach((label, index) => {
     const x = 42 + index * ((width - 74) / (labels.length - 1));
     ctx.fillText(label, x - 12, height - 14);
   });
+
+  if (!canvas.dataset.interactiveBound) {
+    canvas.dataset.interactiveBound = "true";
+    canvas.addEventListener("mousemove", (event) => {
+      const point = canvasPoint(event, canvas);
+      const nearestIndex = Math.max(0, Math.min(labels.length - 1, Math.round((point.x - 42) / ((width - 74) / (labels.length - 1)))));
+      const nearestX = 42 + nearestIndex * ((width - 74) / (labels.length - 1));
+      if (Math.abs(point.x - nearestX) > 45 || point.y < 16 || point.y > height - 28) {
+        drawLineChart(canvasId, series, labels, null);
+        hideTooltip();
+        return;
+      }
+      drawLineChart(canvasId, series, labels, nearestIndex);
+      const detail = series.map((line) => `${line.label}: ${line.values[nearestIndex]}%`).join("<br>");
+      moveTooltip(event, `<strong>${labels[nearestIndex]}</strong><br>${detail}<br><span>Click to pin details</span>`);
+    });
+    canvas.addEventListener("mouseleave", () => {
+      drawLineChart(canvasId, series, labels, null);
+      hideTooltip();
+    });
+    canvas.addEventListener("click", (event) => {
+      const point = canvasPoint(event, canvas);
+      const selectedIndex = Math.max(0, Math.min(labels.length - 1, Math.round((point.x - 42) / ((width - 74) / (labels.length - 1)))));
+      const detail = document.querySelector(`#${canvasId}Detail`);
+      if (detail) {
+        detail.innerHTML = `<strong>${labels[selectedIndex]}</strong>: ${series.map((line) => `${line.label} ${line.values[selectedIndex]}%`).join(" | ")}`;
+      }
+      showNotice(`Chart selection pinned for ${labels[selectedIndex]}.`);
+    });
+  }
 }
 
-function drawPie(canvasId) {
+function drawPie(canvasId, activeIndex = null) {
   const canvas = document.querySelector(`#${canvasId}`);
   const ctx = canvas.getContext("2d");
   const counts = [
@@ -912,15 +1002,26 @@ function drawPie(canvasId) {
   ];
   let start = -Math.PI / 2;
   const total = counts.reduce((sum, item) => sum + item.value, 0) || 1;
+  const slices = [];
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  counts.forEach((item) => {
+  counts.forEach((item, index) => {
     const angle = (item.value / total) * Math.PI * 2;
+    const offset = activeIndex === index ? 8 : 0;
+    const mid = start + angle / 2;
+    const centerX = 130 + Math.cos(mid) * offset;
+    const centerY = 128 + Math.sin(mid) * offset;
     ctx.beginPath();
-    ctx.moveTo(130, 128);
-    ctx.arc(130, 128, 78, start, start + angle);
+    ctx.moveTo(centerX, centerY);
+    ctx.arc(centerX, centerY, activeIndex === index ? 84 : 78, start, start + angle);
     ctx.closePath();
     ctx.fillStyle = item.color;
     ctx.fill();
+    if (activeIndex === index) {
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "#ffffff";
+      ctx.stroke();
+    }
+    slices.push({ ...item, start, end: start + angle, index });
     start += angle;
   });
   ctx.font = "13px Arial";
@@ -930,6 +1031,47 @@ function drawPie(canvasId) {
     ctx.fillStyle = "#172033";
     ctx.fillText(`${item.label}: ${item.value}`, 270, 87 + index * 28);
   });
+
+  if (!canvas.dataset.interactiveBound) {
+    canvas.dataset.interactiveBound = "true";
+    canvas.addEventListener("mousemove", (event) => {
+      const point = canvasPoint(event, canvas);
+      const dx = point.x - 130;
+      const dy = point.y - 128;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      let angle = Math.atan2(dy, dx);
+      if (angle < -Math.PI / 2) angle += Math.PI * 2;
+      const hit = distance <= 92 && slices.find((slice) => angle >= slice.start && angle <= slice.end);
+      if (!hit) {
+        drawPie(canvasId, null);
+        hideTooltip();
+        return;
+      }
+      drawPie(canvasId, hit.index);
+      const pct = Math.round((hit.value / total) * 100);
+      moveTooltip(event, `<strong>${hit.label}</strong><br>${hit.value.toLocaleString()} students<br>${pct}% of roster<br><span>Click to pin details</span>`);
+    });
+    canvas.addEventListener("mouseleave", () => {
+      drawPie(canvasId, null);
+      hideTooltip();
+    });
+    canvas.addEventListener("click", (event) => {
+      const point = canvasPoint(event, canvas);
+      const dx = point.x - 130;
+      const dy = point.y - 128;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      let angle = Math.atan2(dy, dx);
+      if (angle < -Math.PI / 2) angle += Math.PI * 2;
+      const hit = distance <= 92 && slices.find((slice) => angle >= slice.start && angle <= slice.end);
+      if (!hit) return;
+      const detail = document.querySelector(`#${canvasId}Detail`);
+      const pct = Math.round((hit.value / total) * 100);
+      if (detail) {
+        detail.innerHTML = `<strong>${hit.label}</strong>: ${hit.value.toLocaleString()} students, ${pct}% of the active roster.`;
+      }
+      showNotice(`${hit.label} risk segment selected.`);
+    });
+  }
 }
 
 document.querySelector("#roleSelect").addEventListener("change", (event) => {
