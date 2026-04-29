@@ -397,7 +397,7 @@ function renderDashboard() {
 
   root.insertAdjacentHTML("beforeend", `
     <div class="grid cols-2">
-      <section class="panel">
+      <section class="panel" id="studentListPanel">
         <h2>Engagement and Risk Trends</h2>
         <canvas class="chart" id="trendCanvas" width="900" height="260" aria-label="Engagement and risk trend chart"></canvas>
         <div class="chart-detail" id="trendCanvasDetail">Hover over a point or click a month to inspect engagement and risk.</div>
@@ -487,7 +487,7 @@ function renderStudentDetail() {
     </section>
 
     <div class="grid cols-2">
-      <section class="panel">
+      <section class="panel" id="studentProfilePanel">
         <h2>Student Profile</h2>
         <div class="meta-grid">
           ${kv("Advisor", advisorName(selected.advisorId))}
@@ -559,14 +559,14 @@ function studentListTable(rows) {
     <div class="table-wrap">
       <table>
         <thead><tr><th>Student</th><th>Major</th><th>Cohort</th><th>Advisor</th><th>Risk</th><th>Status</th><th></th></tr></thead>
-        <tbody>${shown.map((student) => `<tr>
+        <tbody>${shown.map((student) => `<tr class="click-row" onclick="openStudent('${student.id}')">
           <td><strong>${student.firstName} ${student.lastName}</strong><br><span class="small">${student.id}</span></td>
           <td>${student.major}</td>
           <td>${student.cohort}</td>
-          <td>${advisorName(student.advisorId)}</td>
+          <td><button class="link-button" type="button" onclick="event.stopPropagation(); openAdvisorCaseload('${student.advisorId}')">${advisorName(student.advisorId)}</button></td>
           <td>${student.riskScore === null ? "Review" : student.riskScore} ${badge(student.riskLevel)}</td>
           <td>${badge(student.retentionStatus)}</td>
-          <td><button class="secondary" onclick="openStudent('${student.id}')" type="button">Open</button></td>
+          <td><button class="secondary" onclick="event.stopPropagation(); openStudent('${student.id}')" type="button">Open profile</button></td>
         </tr>`).join("")}</tbody>
       </table>
     </div>
@@ -602,7 +602,7 @@ function renderInterventions() {
       </section>
       <section class="panel">
         <h2>Immediate Follow-Ups</h2>
-        <div class="timeline">${overdueFollowUps().map((item) => `<div class="timeline-item"><strong>${item.student}</strong><br><span class="small">${item.detail}</span></div>`).join("")}</div>
+        <div class="timeline">${overdueFollowUps().map((item) => `<button class="timeline-item student-card" type="button" onclick="openStudent('${item.studentId}')"><strong>${item.student}</strong><br><span class="small">${item.detail}</span><span class="small action-hint">Open student profile</span></button>`).join("")}</div>
       </section>
     </div>
     <section class="panel">
@@ -777,14 +777,14 @@ function studentQueueTable(rows) {
         <thead><tr><th>Student</th><th>Priority</th><th>Risk</th><th>Reason</th><th>Advisor</th><th>Due</th><th></th></tr></thead>
         <tbody>${shown.map((student) => {
           const top = riskFactorScore(student).factors[0];
-          return `<tr>
+          return `<tr class="click-row" onclick="openStudent('${student.id}')">
             <td><strong>${student.firstName} ${student.lastName}</strong><br><span class="small">${student.major} - ${student.cohort}</span></td>
             <td>${priorityScore(student)}</td>
             <td>${badge(student.riskLevel)}<br><strong>${student.riskScore}</strong></td>
             <td>${top.description}</td>
-            <td>${advisorName(student.advisorId)}</td>
+            <td><button class="link-button" type="button" onclick="event.stopPropagation(); openAdvisorCaseload('${student.advisorId}')">${advisorName(student.advisorId)}</button></td>
             <td>${student.lastOutreachDays > 14 ? "Today" : "This week"}</td>
-            <td><button class="secondary" onclick="openStudent('${student.id}')" type="button">View</button></td>
+            <td><button class="secondary" onclick="event.stopPropagation(); openStudent('${student.id}')" type="button">View profile</button></td>
           </tr>`;
         }).join("")}</tbody>
       </table>
@@ -795,11 +795,11 @@ function studentQueueTable(rows) {
 
 function studentAlertList(rows) {
   return `<div class="timeline">${rows.map((student) => `
-    <div class="timeline-item">
+    <button class="timeline-item student-card" type="button" onclick="openStudent('${student.id}')">
       <strong>${student.firstName} ${student.lastName}</strong> ${badge(student.riskLevel)}
       <p class="small">${riskFactorScore(student).factors[0].description}</p>
-      <button class="secondary" onclick="openStudent('${student.id}')" type="button">Review</button>
-    </div>
+      <span class="small action-hint">Open student profile</span>
+    </button>
   `).join("")}</div>`;
 }
 
@@ -808,7 +808,7 @@ function riskSignalList() {
   queueStudents().forEach((student) => riskFactorScore(student).factors.forEach((factor) => {
     signals[factor.type] = (signals[factor.type] || 0) + 1;
   }));
-  return `<div class="timeline">${Object.entries(signals).sort((a, b) => b[1] - a[1]).map(([name, count]) => `<div class="timeline-item"><strong>${name}</strong><span class="small"> - ${count} flagged students</span></div>`).join("")}</div>`;
+  return `<div class="timeline">${Object.entries(signals).sort((a, b) => b[1] - a[1]).map(([name, count]) => `<button class="timeline-item info-card" type="button" onclick="openRiskSignal('${name}')"><strong>${name}</strong><span class="small"> - ${count} flagged students</span><span class="small action-hint">Show matching at-risk students</span></button>`).join("")}</div>`;
 }
 
 function advisorWorkload() {
@@ -833,21 +833,21 @@ function interventionTimeline(student) {
 function interventionTable() {
   const rows = students.flatMap((student) => student.interventions.map((item) => ({ student, item }))).sort((a, b) => b.item.opened.localeCompare(a.item.opened));
   return `<div class="table-wrap"><table><thead><tr><th>Date</th><th>Student</th><th>Type</th><th>Status</th><th>Follow-up</th><th>Outcome</th><th>Notes</th></tr></thead><tbody>${rows.map(({ student, item }) => `
-    <tr><td>${item.opened}</td><td>${student.firstName} ${student.lastName}</td><td>${item.type}</td><td>${badge(item.status)}</td><td>${item.followUp}</td><td>${item.outcome}</td><td>${item.notes}</td></tr>
+    <tr class="click-row" onclick="openStudent('${student.id}')"><td>${item.opened}</td><td>${student.firstName} ${student.lastName}</td><td>${item.type}</td><td>${badge(item.status)}</td><td>${item.followUp}</td><td>${item.outcome}</td><td>${item.notes}</td></tr>
   `).join("")}</tbody></table></div>`;
 }
 
 function overdueFollowUps() {
   return students.flatMap((student) => student.interventions
     .filter((item) => item.status === "Open")
-    .map((item) => ({ student: `${student.firstName} ${student.lastName}`, detail: `${item.type} follow-up due ${item.followUp}` })));
+    .map((item) => ({ studentId: student.id, student: `${student.firstName} ${student.lastName}`, detail: `${item.type} follow-up due ${item.followUp}` })));
 }
 
 function cohortWatchlist() {
   return `<div class="timeline">
-    <div class="timeline-item"><strong>First Year</strong><br><span class="small">LMS activity down 6% over two weeks.</span></div>
-    <div class="timeline-item"><strong>Sophomore</strong><br><span class="small">Attendance variance widening in Science programs.</span></div>
-    <div class="timeline-item"><strong>Senior</strong><br><span class="small">High workload signals concentrated in Business.</span></div>
+    <button class="timeline-item info-card" type="button" onclick="openCohort('First Year')"><strong>First Year</strong><br><span class="small">LMS activity down 6% over two weeks.</span><span class="small action-hint">Open cohort students</span></button>
+    <button class="timeline-item info-card" type="button" onclick="openCohort('Sophomore')"><strong>Sophomore</strong><br><span class="small">Attendance variance widening in Science programs.</span><span class="small action-hint">Open cohort students</span></button>
+    <button class="timeline-item info-card" type="button" onclick="openCohort('Senior')"><strong>Senior</strong><br><span class="small">High workload signals concentrated in Business.</span><span class="small action-hint">Open cohort students</span></button>
   </div>`;
 }
 
@@ -856,7 +856,7 @@ function cohortTable() {
   return `<div class="table-wrap"><table><thead><tr><th>Cohort</th><th>Students</th><th>Avg risk</th><th>At risk</th><th>Intervention success</th><th>Trend</th></tr></thead><tbody>${cohorts.map((cohort) => {
     const rows = students.filter((student) => student.cohort === cohort);
     const avg = rows.length ? Math.round(rows.reduce((sum, s) => sum + (s.riskScore || 0), 0) / rows.length) : 0;
-    return `<tr><td>${cohort}</td><td>${rows.length || "1,000+"}</td><td>${avg || "47"}</td><td>${rows.filter((s) => s.retentionStatus === "At Risk").length}</td><td>${cohort === "Junior" ? "81%" : cohort === "Senior" ? "67%" : "74%"}</td><td>${cohort === "Sophomore" ? badge("Worsening") : badge("Stable")}</td></tr>`;
+    return `<tr class="click-row" onclick="openCohort('${cohort}')"><td>${cohort}</td><td>${rows.length || "1,000+"}</td><td>${avg || "47"}</td><td>${rows.filter((s) => s.retentionStatus === "At Risk").length}</td><td>${cohort === "Junior" ? "81%" : cohort === "Senior" ? "67%" : "74%"}</td><td>${cohort === "Sophomore" ? badge("Worsening") : badge("Stable")}</td></tr>`;
   }).join("")}</tbody></table></div>`;
 }
 
@@ -877,14 +877,14 @@ function documentList(type = "All", limit = 100) {
     <div class="document-layout">
       <div class="document-list">
         ${docs.map((doc) => `
-          <article class="document-card ${doc.id === selected.id ? "active" : ""}">
+          <article class="document-card ${doc.id === selected.id ? "active" : ""}" onclick="openDocument('${doc.id}')">
             <div>
               <strong>${escapeHtml(doc.title)}</strong>
               <span class="small">${escapeHtml(doc.type)} - ${escapeHtml(doc.createdAt)}${doc.studentName ? ` - ${escapeHtml(doc.studentName)}` : ""}</span>
             </div>
             <div class="split-actions">
-              <button class="secondary" type="button" onclick="openDocument('${doc.id}')">Open</button>
-              <button class="ghost" type="button" onclick="downloadDocument('${doc.id}')">Download</button>
+              ${doc.studentId ? `<button class="secondary" type="button" onclick="event.stopPropagation(); openStudent('${doc.studentId}')">Student profile</button>` : `<button class="secondary" type="button" onclick="event.stopPropagation(); openDocument('${doc.id}')">Open</button>`}
+              <button class="ghost" type="button" onclick="event.stopPropagation(); downloadDocument('${doc.id}')">Download</button>
             </div>
           </article>
         `).join("")}
@@ -1035,11 +1035,13 @@ function openMetricDestination(viewId) {
 
 function openAdvisorCaseload(advisorId) {
   state.advisorFilter = advisorId;
+  state.cohortFilter = "All";
   document.querySelector("#searchInput").value = "";
   const firstStudent = students.find((student) => student.advisorId === advisorId);
   if (firstStudent) state.selectedStudentId = firstStudent.id;
   setActiveView("student");
   showNotice(`Showing ${advisorName(advisorId)}'s caseload.`);
+  focusSection("#studentListPanel");
 }
 
 function clearAdvisorFilter() {
@@ -1049,8 +1051,44 @@ function clearAdvisorFilter() {
 }
 
 function openStudent(studentId) {
+  state.advisorFilter = "";
   state.selectedStudentId = studentId;
   setActiveView("student");
+  focusSection("#studentProfilePanel");
+  const student = selectedStudent();
+  showNotice(`Opened ${student.firstName} ${student.lastName}'s profile.`);
+}
+
+function openCohort(cohort) {
+  state.cohortFilter = cohort;
+  state.advisorFilter = "";
+  document.querySelector("#searchInput").value = "";
+  const firstStudent = students.find((student) => student.cohort === cohort);
+  if (firstStudent) state.selectedStudentId = firstStudent.id;
+  setActiveView("student");
+  focusSection("#studentListPanel");
+  showNotice(`Showing ${cohort} students.`);
+}
+
+function openRiskSignal(signal) {
+  const match = queueStudents().find((student) => riskFactorScore(student).factors.some((factor) => factor.type === signal));
+  if (match) {
+    openStudent(match.id);
+    showNotice(`Opened a student flagged for ${signal}.`);
+    return;
+  }
+  setActiveView("queue");
+  showNotice(`Showing at-risk queue for ${signal}.`);
+}
+
+function focusSection(selector) {
+  window.setTimeout(() => {
+    const section = document.querySelector(selector);
+    if (!section) return;
+    section.scrollIntoView({ behavior: "smooth", block: "start" });
+    section.classList.add("focus-pulse");
+    window.setTimeout(() => section.classList.remove("focus-pulse"), 1300);
+  }, 0);
 }
 
 function selectedStudent() {
@@ -1323,6 +1361,8 @@ document.querySelector("#syncButton").addEventListener("click", () => {
 window.openStudent = openStudent;
 window.openAdvisorCaseload = openAdvisorCaseload;
 window.clearAdvisorFilter = clearAdvisorFilter;
+window.openCohort = openCohort;
+window.openRiskSignal = openRiskSignal;
 window.openDocument = openDocument;
 window.downloadDocument = downloadDocument;
 window.generateCohortReport = generateCohortReport;
