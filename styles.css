@@ -201,7 +201,8 @@ h2 {
 
 h3 {
   font-size: 14px;
-  margin-bottom: 8px;
+  margin: 16px 0 8px;
+  color: var(--blue-dark);
 }
 
 .top-actions {
@@ -551,6 +552,23 @@ tr:hover td {
   color: var(--muted);
   font-size: 12px;
   margin-bottom: 4px;
+}
+
+.support-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.support-list span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #f8fbff;
+  color: var(--blue-dark);
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .factor {

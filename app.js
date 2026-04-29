@@ -324,6 +324,9 @@ function renderNav() {
 function setActiveView(viewId) {
   const allowed = navItems.find((item) => item.id === viewId)?.roles.includes(state.role);
   state.activeView = allowed ? viewId : "dashboard";
+  if (state.activeView === "dashboard") {
+    resetPageFilters();
+  }
   document.querySelectorAll(".view").forEach((view) => view.classList.remove("active"));
   document.querySelector(`#${state.activeView}View`).classList.add("active");
   document.querySelector("#pageTitle").textContent = navItems.find((item) => item.id === state.activeView).label.replace("&", "and");
@@ -397,7 +400,7 @@ function renderDashboard() {
 
   root.insertAdjacentHTML("beforeend", `
     <div class="grid cols-2">
-      <section class="panel" id="studentListPanel">
+      <section class="panel">
         <h2>Engagement and Risk Trends</h2>
         <canvas class="chart" id="trendCanvas" width="900" height="260" aria-label="Engagement and risk trend chart"></canvas>
         <div class="chart-detail" id="trendCanvasDetail">Hover over a point or click a month to inspect engagement and risk.</div>
@@ -489,16 +492,48 @@ function renderStudentDetail() {
     <div class="grid cols-2">
       <section class="panel" id="studentProfilePanel">
         <h2>Student Profile</h2>
+        <h3>Demographics</h3>
         <div class="meta-grid">
+          ${kv("Student ID", selected.id)}
+          ${kv("Email", selected.email)}
+          ${kv("Class year", selected.year)}
+          ${kv("Cohort", selected.cohort)}
+          ${kv("Major", selected.major)}
+          ${kv("Program", selected.program)}
           ${kv("Advisor", advisorName(selected.advisorId))}
           ${kv("Enrollment", selected.enrollmentStatus)}
+          ${kv("Retention status", selected.retentionStatus)}
+        </div>
+
+        <h3>Academic Metrics</h3>
+        <div class="meta-grid">
           ${kv("Risk score", selected.riskScore === null ? "Data review" : selected.riskScore)}
+          ${kv("Risk level", selected.riskLevel)}
+          ${kv("Prior term GPA", selected.academics.priorGpa ?? "Missing")}
           ${kv("Current grade", `${selected.academics.currentGrade}%`)}
-          ${kv("Prior GPA", selected.academics.priorGpa ?? "Missing")}
-          ${kv("Attendance", percent(selected.engagement.attendance))}
-          ${kv("LMS logins", selected.engagement.lmsLogins)}
+          ${kv("Credits enrolled", selected.academics.creditsEnrolled)}
+          ${kv("Credits completed", selected.academics.creditsCompleted)}
+          ${kv("Assignment submission", percent(selected.academics.assignmentRate))}
           ${kv("Missing assignments", selected.academics.missingAssignments)}
-          ${kv("Support history", selected.supportHistory.join("; "))}
+          ${kv("Late submissions", selected.academics.lateSubmissions)}
+        </div>
+
+        <h3>Attendance, LMS, and Support Signals</h3>
+        <div class="meta-grid">
+          ${kv("Attendance", percent(selected.engagement.attendance))}
+          ${kv("LMS logins last 14 days", selected.engagement.lmsLogins)}
+          ${kv("Discussion posts", selected.engagement.discussionPosts)}
+          ${kv("Event participation", selected.engagement.events)}
+          ${kv("Advising check-ins", selected.engagement.advisingCheckins)}
+          ${kv("Last outreach", `${selected.lastOutreachDays} days ago`)}
+          ${kv("Financial hold", selected.financialHold ? "Yes" : "No")}
+          ${kv("Work hours/week", selected.workHours)}
+          ${kv("Commute", `${selected.commute} minutes`)}
+        </div>
+
+        <h3>Support History</h3>
+        <div class="support-list">
+          ${selected.supportHistory.map((item) => `<span>${item}</span>`).join("")}
         </div>
         <div class="split-actions">
           <label>Assigned advisor<select id="advisorAssign">${advisors.map((advisor) => `<option value="${advisor.id}" ${advisor.id === selected.advisorId ? "selected" : ""}>${advisor.name}</option>`).join("")}</select></label>
@@ -1024,11 +1059,15 @@ function updateStudentAssignment(studentId) {
   renderStudentDetail();
 }
 
-function openMetricDestination(viewId) {
+function resetPageFilters() {
   state.advisorFilter = "";
-  if (viewId === "student") {
-    document.querySelector("#searchInput").value = "";
-  }
+  state.cohortFilter = "All";
+  const search = document.querySelector("#searchInput");
+  if (search) search.value = "";
+}
+
+function openMetricDestination(viewId) {
+  resetPageFilters();
   setActiveView(viewId);
   showNotice(`Opened ${navItems.find((item) => item.id === viewId)?.label || "section"}.`);
 }
