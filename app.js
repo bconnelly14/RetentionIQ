@@ -3,6 +3,7 @@ const state = {
   activeView: "dashboard",
   selectedStudentId: "S-1047",
   selectedDocumentId: "",
+  advisorFilter: "",
   cohortFilter: "All",
   threshold: 68,
   weights: {
@@ -195,7 +196,7 @@ const navItems = [
   { id: "queue", label: "At-risk queue", icon: "!", roles: ["Advisor", "Student Success Manager"] },
   { id: "student", label: "Student detail", icon: "o", roles: ["Advisor", "Student Success Manager", "Administrator"] },
   { id: "interventions", label: "Interventions", icon: "+", roles: ["Advisor", "Student Success Manager"] },
-  { id: "trends", label: "Trends & reports", icon: "~", roles: ["Student Success Manager", "Administrator"] },
+  { id: "trends", label: "Trends & reports", icon: "~", roles: ["Advisor", "Student Success Manager", "Administrator"] },
   { id: "documents", label: "Documents", icon: "#", roles: ["Advisor", "Student Success Manager", "Administrator"] },
   { id: "admin", label: "Admin settings", icon: "*", roles: ["Administrator"] }
 ];
@@ -344,7 +345,8 @@ function visibleStudents() {
   return students.filter((student) => {
     const haystack = `${student.firstName} ${student.lastName} ${student.email} ${student.major} ${student.program} ${advisorName(student.advisorId)}`.toLowerCase();
     const cohortOk = state.cohortFilter === "All" || student.cohort === state.cohortFilter;
-    return cohortOk && (!query || haystack.includes(query));
+    const advisorOk = !state.advisorFilter || student.advisorId === state.advisorFilter;
+    return cohortOk && advisorOk && (!query || haystack.includes(query));
   });
 }
 
@@ -352,13 +354,27 @@ function renderStats(target, stats) {
   const template = document.querySelector("#statTemplate");
   const wrap = document.createElement("div");
   wrap.className = "grid cols-4";
-  stats.forEach((stat) => {
+  stats.forEach((stat, index) => {
     const node = template.content.cloneNode(true);
+    const card = node.querySelector(".stat");
     node.querySelector(".stat-label").textContent = stat.label;
     node.querySelector(".stat-value").textContent = stat.value;
     const delta = node.querySelector(".stat-delta");
     delta.textContent = stat.delta;
     delta.className = `stat-delta ${stat.direction || ""}`;
+    if (stat.view) {
+      card.classList.add("clickable");
+      card.tabIndex = 0;
+      card.setAttribute("role", "button");
+      card.setAttribute("aria-label", `${stat.label}: open ${stat.view}`);
+      card.addEventListener("click", () => openMetricDestination(stat.view));
+      card.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openMetricDestination(stat.view);
+        }
+      });
+    }
     wrap.append(node);
   });
   target.append(wrap);
@@ -373,10 +389,10 @@ function renderDashboard() {
   const riskRate = all.length ? Math.round((atRisk / all.length) * 100) : 0;
   const retentionHealth = all.length ? `${Math.round(100 - riskRate)}%` : "0%";
   renderStats(root, [
-    { label: "Active students", value: all.length.toLocaleString(), delta: "CSV-backed synthetic roster", direction: "good" },
-    { label: "Engagement rate", value: "82%", delta: "-3.1% this month", direction: "bad" },
-    { label: "At-risk students", value: atRisk.toLocaleString(), delta: `${riskRate}% of active roster`, direction: "bad" },
-    { label: "Retention health", value: retentionHealth, delta: `${avgRisk} avg risk score`, direction: riskRate > 30 ? "bad" : "good" }
+    { label: "Active students", value: all.length.toLocaleString(), delta: "Open student list", direction: "good", view: "student" },
+    { label: "Engagement rate", value: "82%", delta: "Open trend dashboard", direction: "bad", view: "trends" },
+    { label: "At-risk students", value: atRisk.toLocaleString(), delta: "Open prioritized queue", direction: "bad", view: "queue" },
+    { label: "Retention health", value: retentionHealth, delta: "Open reports", direction: riskRate > 30 ? "bad" : "good", view: "trends" }
   ]);
 
   root.insertAdjacentHTML("beforeend", `
@@ -445,6 +461,7 @@ function renderStudentDetail() {
   const root = document.querySelector("#studentView");
   const selected = selectedStudent();
   const risk = riskFactorScore(selected);
+  const filteredAdvisor = advisors.find((advisor) => advisor.id === state.advisorFilter);
   root.innerHTML = `
     <section class="profile-head">
       <div>
@@ -462,7 +479,10 @@ function renderStudentDetail() {
     </section>
 
     <section class="panel">
-      <h2>Student List</h2>
+      <div class="split-actions document-toolbar">
+        <h2>${filteredAdvisor ? `${filteredAdvisor.name} Caseload` : "Student List"}</h2>
+        ${filteredAdvisor ? `<button class="ghost" type="button" onclick="clearAdvisorFilter()">Clear advisor filter</button>` : ""}
+      </div>
       ${studentListTable(visibleStudents())}
     </section>
 
@@ -795,7 +815,7 @@ function advisorWorkload() {
   return `<div class="timeline">${advisors.map((advisor) => {
     const caseload = students.filter((student) => student.advisorId === advisor.id).length;
     const risk = students.filter((student) => student.advisorId === advisor.id && student.retentionStatus === "At Risk").length;
-    return `<div class="timeline-item"><strong>${advisor.name}</strong><br><span class="small">${caseload} demo students - ${advisor.caseload} total caseload - ${risk} at risk</span></div>`;
+    return `<button class="timeline-item advisor-card" type="button" onclick="openAdvisorCaseload('${advisor.id}')"><strong>${advisor.name}</strong><br><span class="small">${caseload} demo students - ${advisor.caseload} total caseload - ${risk} at risk</span><span class="small action-hint">Open caseload</span></button>`;
   }).join("")}</div>`;
 }
 
@@ -1002,6 +1022,30 @@ function updateStudentAssignment(studentId) {
   logAudit(state.role, "Updated student profile", `${student.firstName} ${student.lastName}: ${oldAdvisor} to ${advisorName(student.advisorId)}, status ${student.status}`);
   showNotice(`${student.firstName} ${student.lastName} updated and audit history recorded.`);
   renderStudentDetail();
+}
+
+function openMetricDestination(viewId) {
+  state.advisorFilter = "";
+  if (viewId === "student") {
+    document.querySelector("#searchInput").value = "";
+  }
+  setActiveView(viewId);
+  showNotice(`Opened ${navItems.find((item) => item.id === viewId)?.label || "section"}.`);
+}
+
+function openAdvisorCaseload(advisorId) {
+  state.advisorFilter = advisorId;
+  document.querySelector("#searchInput").value = "";
+  const firstStudent = students.find((student) => student.advisorId === advisorId);
+  if (firstStudent) state.selectedStudentId = firstStudent.id;
+  setActiveView("student");
+  showNotice(`Showing ${advisorName(advisorId)}'s caseload.`);
+}
+
+function clearAdvisorFilter() {
+  state.advisorFilter = "";
+  setActiveView("student");
+  showNotice("Advisor filter cleared.");
 }
 
 function openStudent(studentId) {
@@ -1277,6 +1321,8 @@ document.querySelector("#syncButton").addEventListener("click", () => {
 });
 
 window.openStudent = openStudent;
+window.openAdvisorCaseload = openAdvisorCaseload;
+window.clearAdvisorFilter = clearAdvisorFilter;
 window.openDocument = openDocument;
 window.downloadDocument = downloadDocument;
 window.generateCohortReport = generateCohortReport;
